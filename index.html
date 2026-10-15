@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyMate AI – Plan. Track. Test.</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:#f0f4ff;min-height:100vh;}
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:#f0f4ff}
+  ::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:4px}
+
+  /* Floating animation */
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .float-anim{animation:float 3s ease-in-out infinite}
+
+  /* Pulse ring */
+  @keyframes pulse-ring{0%{transform:scale(.9);opacity:.8}70%{transform:scale(1.3);opacity:0}100%{opacity:0}}
+  .pulse-ring{animation:pulse-ring 1.5s ease-out infinite}
+
+  /* Fade in */
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeIn .35s ease forwards}
+
+  /* Progress bar */
+  @keyframes progress-fill{from{width:0}to{width:var(--pct)}}
+  .progress-bar{animation:progress-fill .8s ease forwards}
+
+  /* Timer ring */
+  .timer-circle{transform:rotate(-90deg);transform-origin:50% 50%}
+
+  /* Typing dots */
+  @keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+  .dot1{animation:blink 1.4s infinite .0s}
+  .dot2{animation:blink 1.4s infinite .2s}
+  .dot3{animation:blink 1.4s infinite .4s}
+
+  /* Card hover */
+  .card-hover{transition:transform .2s,box-shadow .2s}
+  .card-hover:hover{transform:translateY(-3px);box-shadow:0 8px 25px rgba(99,102,241,.15)}
+
+  /* Nav active */
+  .nav-active{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff!important}
+  .nav-btn{transition:all .2s}
+
+  /* Modal backdrop */
+  .modal-backdrop{backdrop-filter:blur(4px)}
+
+  /* Gradient text */
+  .grad-text{background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* Chat bubble */
+  .bubble-user{border-radius:18px 18px 4px 18px}
+  .bubble-ai{border-radius:18px 18px 18px 4px}
+
+  /* Smooth section transition */
+  .section{transition:opacity .25s}
+</style>
+</head>
+<body x-data="studyMate()" x-init="init()" class="bg-gradient-to-br from-indigo-50 via-blue-50 to-green-50 min-h-screen">
+
+<!-- ===================== TOP NAV ===================== -->
+<nav class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-indigo-100 shadow-sm">
+  <div class="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">
+    <div class="flex items-center gap-2 cursor-pointer" @click="goto('home')">
+      <span class="text-2xl">📚</span>
+      <span class="font-bold text-indigo-600 text-lg hidden sm:block">StudyMate AI</span>
+    </div>
+    <!-- Desktop nav -->
+    <div class="hidden md:flex items-center gap-1 text-sm font-medium text-gray-600">
+      <template x-for="n in navItems" :key="n.id">
+        <button @click="goto(n.id)" :class="['nav-btn px-3 py-1.5 rounded-lg',page===n.id?'nav-active':'hover:bg-indigo-50 hover:text-indigo-600']" x-text="n.label"></button>
+      </template>
+    </div>
+    <!-- Mobile hamburger -->
+    <button @click="mobileNav=!mobileNav" class="md:hidden p-2 rounded-lg hover:bg-indigo-50">
+      <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
+  <!-- Mobile menu -->
+  <div x-show="mobileNav" x-transition class="md:hidden bg-white border-t border-indigo-100 px-3 py-2 grid grid-cols-3 gap-1.5">
+    <template x-for="n in navItems" :key="n.id">
+      <button @click="goto(n.id);mobileNav=false" :class="['nav-btn text-xs font-medium py-2 px-1 rounded-lg text-center',page===n.id?'nav-active':'hover:bg-indigo-50 text-gray-600']" x-text="n.label"></button>
+    </template>
+  </div>
+</nav>
+
+<!-- ===================== TOAST ===================== -->
+<div x-show="toast.show" x-transition class="fixed top-16 right-4 z-50 max-w-xs">
+  <div :class="['flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white',toast.type==='success'?'bg-green-500':toast.type==='error'?'bg-red-500':'bg-indigo-500']">
+    <span x-text="toast.type==='success'?'✅':toast.type==='error'?'❌':'ℹ️'"></span>
+    <span x-text="toast.msg"></span>
+  </div>
+</div>
+
+<!-- ===================== PAGES ===================== -->
+<main class="max-w-6xl mx-auto px-4 py-6">
+
+<!-- ========== HOME ========== -->
+<div x-show="page==='home'" class="fade-in">
+  <div class="text-center py-10">
+    <div class="float-anim inline-block text-7xl mb-4">📚</div>
+    <h1 class="text-4xl md:text-5xl font-extrabold grad-text mb-2">StudyMate AI</h1>
+    <p class="text-gray-500 text-lg mb-8">Plan Your Study. Track Your Progress. Test Your Knowledge.</p>
+
+    <!-- Quick stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto mb-8">
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover">
+        <div class="text-2xl font-bold text-indigo-600" x-text="subjects.length"></div>
+        <div class="text-xs text-gray-500 mt-1">Subjects</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover">
+        <div class="text-2xl font-bold text-blue-500" x-text="totalSessions"></div>
+        <div class="text-xs text-gray-500 mt-1">Sessions Done</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover">
+        <div class="text-2xl font-bold text-green-500" x-text="photos.length"></div>
+        <div class="text-xs text-gray-500 mt-1">Photos</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover">
+        <div class="text-2xl font-bold text-purple-500" x-text="quizAttempts.length"></div>
+        <div class="text-xs text-gray-500 mt-1">Quizzes</div>
+      </div>
+    </div>
+
+    <!-- Today's plan -->
+    <div x-show="todayPlan" class="bg-white rounded-2xl p-5 shadow-sm max-w-lg mx-auto mb-6 text-left">
+      <h3 class="font-semibold text-indigo-700 mb-3">📅 Today's Study Plan</h3>
+      <template x-if="todayPlan">
+        <div>
+          <p class="text-sm text-gray-700 font-medium" x-text="todayPlan.subjectName + ' – ' + todayPlan.topic"></p>
+          <p class="text-xs text-gray-500 mt-1" x-text="'Sessions: ' + todayPlan.completedSessions + '/' + todayPlan.sessions + '  •  Start: ' + todayPlan.startTime"></p>
+          <div class="mt-3 bg-gray-100 rounded-full h-2">
+            <div class="bg-indigo-500 h-2 rounded-full transition-all" :style="'width:'+Math.round((todayPlan.completedSessions/Math.max(todayPlan.sessions,1))*100)+'%'"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- CTA buttons -->
+    <div class="flex flex-wrap justify-center gap-3">
+      <button @click="goto('setup')" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow transition">🚀 Get Started</button>
+      <button @click="goto('timer')" x-show="subjects.length>0" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold shadow transition">▶️ Continue Studying</button>
+      <button @click="goto('progress')" class="px-6 py-3 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 rounded-xl font-semibold shadow transition">📊 View Progress</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== STUDY SETUP ========== -->
+<div x-show="page==='setup'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">📝 Study Setup</h2>
+
+  <!-- Add / Edit subject form -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-6">
+    <h3 class="font-semibold text-gray-700 mb-4" x-text="editingSubject?'✏️ Edit Subject':'➕ Add Subject'"></h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Subject Name *</label>
+        <input x-model="form.subjectName" type="text" placeholder="e.g. Mathematics" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Topic *</label>
+        <input x-model="form.topic" type="text" placeholder="e.g. Quadratic Equations" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Study Start Time</label>
+        <input x-model="form.startTime" type="time" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Reminder Time</label>
+        <input x-model="form.reminderTime" type="time" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Session Duration (min)</label>
+        <input x-model.number="form.duration" type="number" min="1" max="120" placeholder="25" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Number of Sessions (0–4)</label>
+        <select x-model.number="form.sessions" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="0">0 – No sessions</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-4 flex gap-2">
+      <button @click="saveSubject()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">💾 Save</button>
+      <button x-show="editingSubject" @click="cancelEdit()" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Subjects list -->
+  <div x-show="subjects.length===0" class="text-center py-10 text-gray-400">
+    <div class="text-5xl mb-3">📋</div>
+    <p>No subjects yet. Add one above!</p>
+  </div>
+  <div class="space-y-3">
+    <template x-for="s in subjects" :key="s.id">
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover flex items-start justify-between">
+        <div>
+          <p class="font-semibold text-gray-800" x-text="s.subjectName"></p>
+          <p class="text-xs text-gray-500 mt-0.5" x-text="s.topic"></p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <span class="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full" x-text="'⏰ '+s.startTime"></span>
+            <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full" x-text="'⏱ '+s.duration+' min'"></span>
+            <span class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full" x-text="s.completedSessions+'/'+s.sessions+' sessions'"></span>
+          </div>
+        </div>
+        <div class="flex gap-2 ml-3">
+          <button @click="editSubject(s)" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm transition">✏️</button>
+          <button @click="deleteSubject(s.id)" class="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 text-sm transition">🗑️</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ========== DASHBOARD ========== -->
+<div x-show="page==='dashboard'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">📊 Dashboard</h2>
+  <div x-show="subjects.length===0" class="text-center py-16 text-gray-400">
+    <div class="text-5xl mb-3">📭</div>
+    <p>No study plans yet. <button @click="goto('setup')" class="text-indigo-500 underline">Add one!</button></p>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <template x-for="s in subjects" :key="s.id">
+      <div class="bg-white rounded-2xl p-5 shadow-sm card-hover">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <h3 class="font-bold text-gray-800 text-base" x-text="s.subjectName"></h3>
+            <p class="text-xs text-gray-500" x-text="s.topic"></p>
+          </div>
+          <span class="text-2xl">📖</span>
+        </div>
+        <div class="mb-3">
+          <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Progress</span>
+            <span x-text="s.completedSessions+'/'+s.sessions+' sessions'"></span>
+          </div>
+          <div class="bg-gray-100 rounded-full h-2.5">
+            <div class="bg-gradient-to-r from-indigo-500 to-blue-400 h-2.5 rounded-full transition-all" :style="'width:'+Math.round((s.completedSessions/Math.max(s.sessions,1))*100)+'%'"></div>
+          </div>
+          <p class="text-xs text-right text-indigo-500 mt-1 font-medium" x-text="Math.round((s.completedSessions/Math.max(s.sessions,1))*100)+'%'"></p>
+        </div>
+        <!-- Photos for this subject -->
+        <div x-show="subjectPhotos(s.id).length>0">
+          <p class="text-xs text-gray-500 mb-2">📸 Study Photos (<span x-text="subjectPhotos(s.id).length"></span>)</p>
+          <div class="flex gap-2 flex-wrap">
+            <template x-for="ph in subjectPhotos(s.id).slice(0,4)" :key="ph.id">
+              <img :src="ph.dataUrl" class="w-14 h-14 object-cover rounded-xl border border-indigo-100 cursor-pointer" @click="previewPhoto=ph;showPhotoModal=true"/>
+            </template>
+          </div>
+        </div>
+        <!-- Quiz score -->
+        <div x-show="bestQuizScore(s.id)!==null" class="mt-3 flex items-center gap-2">
+          <span class="text-xs text-gray-500">🏆 Best Quiz:</span>
+          <span class="text-xs font-bold text-green-600" x-text="bestQuizScore(s.id)+'%'"></span>
+        </div>
+        <!-- Reminder -->
+        <div x-show="s.reminderTime" class="mt-2 text-xs text-gray-400">
+          🔔 Reminder: <span x-text="s.reminderTime"></span>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button @click="startStudy(s)" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">▶️ Study</button>
+          <button @click="openQuiz(s)" class="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-semibold transition">🧠 Quiz</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ========== STUDY TIMER ========== -->
+<div x-show="page==='timer'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">⏱ Study Timer</h2>
+
+  <!-- Subject selector -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <label class="block text-xs font-medium text-gray-600 mb-2">Select Subject</label>
+    <select x-model="timer.subjectId" @change="onTimerSubjectChange()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      <option value="">-- Choose a subject --</option>
+      <template x-for="s in subjects" :key="s.id">
+        <option :value="s.id" x-text="s.subjectName+' – '+s.topic+' ('+s.completedSessions+'/'+s.sessions+')'"></option>
+      </template>
+    </select>
+    <div x-show="timer.subjectId && currentTimerSubject()&&currentTimerSubject().sessions===0" class="mt-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+      ⚠️ This subject has 0 sessions configured. Update it in Study Setup first.
+    </div>
+  </div>
+
+  <!-- Duration presets -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <p class="text-xs font-medium text-gray-600 mb-3">Duration Preset</p>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <template x-for="p in [10,15,20,25]" :key="p">
+        <button @click="setTimerDuration(p)" :class="['px-4 py-2 rounded-xl text-sm font-medium transition',timer.duration===p&&!timer.custom?'bg-indigo-600 text-white':'bg-indigo-50 text-indigo-600 hover:bg-indigo-100']" x-text="p+' min'"></button>
+      </template>
+      <button @click="timer.custom=true" :class="['px-4 py-2 rounded-xl text-sm font-medium transition',timer.custom?'bg-indigo-600 text-white':'bg-indigo-50 text-indigo-600 hover:bg-indigo-100']">Custom</button>
+    </div>
+    <div x-show="timer.custom" class="flex items-center gap-2">
+      <input x-model.number="timer.customVal" type="number" min="1" max="180" placeholder="Minutes" class="w-28 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      <button @click="setTimerDuration(timer.customVal)" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold transition hover:bg-indigo-700">Set</button>
+    </div>
+    <p class="text-xs text-gray-400 mt-2">ℹ️ Browser tabs paused in background may affect timer accuracy.</p>
+  </div>
+
+  <!-- Timer display -->
+  <div class="bg-white rounded-2xl p-8 shadow-sm text-center mb-5">
+    <div class="relative inline-block mb-6">
+      <svg class="w-44 h-44" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#e0e7ff" stroke-width="8"/>
+        <circle class="timer-circle" cx="60" cy="60" r="52" fill="none" stroke="url(#tgrad)" stroke-width="8" stroke-linecap="round"
+          :stroke-dasharray="2*Math.PI*52"
+          :stroke-dashoffset="2*Math.PI*52*(1-timerProgress)"/>
+        <defs>
+          <linearGradient id="tgrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#06b6d4"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="text-4xl font-bold text-indigo-700" x-text="timerDisplay"></span>
+        <span class="text-xs text-gray-400 mt-1" x-text="timer.running?'running':timer.paused?'paused':'ready'"></span>
+      </div>
+    </div>
+    <!-- Session indicator -->
+    <div x-show="timer.subjectId" class="flex justify-center gap-2 mb-5">
+      <template x-for="i in (currentTimerSubject()?currentTimerSubject().sessions:0)" :key="i">
+        <div :class="['w-4 h-4 rounded-full border-2 transition',i<=(currentTimerSubject()?currentTimerSubject().completedSessions:0)?'bg-indigo-500 border-indigo-500':'bg-white border-indigo-300']"></div>
+      </template>
+    </div>
+    <!-- Controls -->
+    <div class="flex justify-center gap-3 flex-wrap">
+      <button @click="startTimer()" x-show="!timer.running&&!timer.paused" :disabled="!timer.subjectId||(currentTimerSubject()&&currentTimerSubject().sessions===0)||(currentTimerSubject()&&currentTimerSubject().completedSessions>=currentTimerSubject().sessions)" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow transition">▶️ Start</button>
+      <button @click="pauseTimer()" x-show="timer.running" class="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold shadow transition">⏸ Pause</button>
+      <button @click="resumeTimer()" x-show="timer.paused" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow transition">▶️ Resume</button>
+      <button @click="stopTimer()" x-show="timer.running||timer.paused" class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold shadow transition">⏹ Stop</button>
+      <button @click="resetTimer()" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold shadow transition">🔄 Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PHOTOS ========== -->
+<div x-show="page==='photos'" class="fade-in" x-init="$watch('page',v=>{if(v!=='photos')stopCamera()})">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">📸 Study Photos</h2>
+
+  <!-- Subject selector for photo -->
+  <div class="bg-white rounded-2xl p-4 shadow-sm mb-5">
+    <label class="block text-xs font-medium text-gray-600 mb-2">Subject</label>
+    <select x-model="photoSubjectId" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+      <option value="">-- Choose subject --</option>
+      <template x-for="s in subjects" :key="s.id">
+        <option :value="s.id" x-text="s.subjectName+' – '+s.topic"></option>
+      </template>
+    </select>
+  </div>
+
+  <!-- Camera -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-gray-700">📷 Camera</h3>
+      <div class="flex gap-2">
+        <button @click="openCamera()" x-show="!cameraActive" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">Open Camera</button>
+        <button @click="stopCamera()" x-show="cameraActive" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition">Close</button>
+      </div>
+    </div>
+    <div x-show="cameraError" class="text-sm text-red-500 bg-red-50 rounded-xl p-3 mb-3" x-text="cameraError"></div>
+    <div x-show="cameraActive" class="flex flex-col items-center gap-4">
+      <video id="camVideo" autoplay playsinline class="w-full max-w-sm rounded-2xl bg-black"></video>
+      <canvas id="camCanvas" class="hidden"></canvas>
+      <div class="flex gap-3">
+        <button @click="capturePhoto()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">📸 Capture</button>
+      </div>
+    </div>
+    <div x-show="capturedPhoto" class="flex flex-col items-center gap-3 mt-3">
+      <img :src="capturedPhoto" class="w-full max-w-sm rounded-2xl border border-indigo-100"/>
+      <div class="flex gap-3">
+        <button @click="uploadCapturedPhoto()" :disabled="!photoSubjectId||uploadingPhoto" class="px-5 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white rounded-xl text-sm font-semibold transition">
+          <span x-show="!uploadingPhoto">✅ Save Photo</span>
+          <span x-show="uploadingPhoto">Saving…</span>
+        </button>
+        <button @click="capturedPhoto=null" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition">🔄 Retake</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gallery upload -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <h3 class="font-semibold text-gray-700 mb-3">🖼️ Upload from Gallery</h3>
+    <label class="block cursor-pointer">
+      <div class="border-2 border-dashed border-indigo-200 rounded-2xl p-8 text-center hover:bg-indigo-50 transition">
+        <div class="text-3xl mb-2">📁</div>
+        <p class="text-sm text-gray-500">Click to upload JPG, PNG, or WebP</p>
+        <p class="text-xs text-gray-400 mt-1">Max 10 MB</p>
+      </div>
+      <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="handleGalleryUpload($event)"/>
+    </label>
+    <p x-show="!photoSubjectId" class="text-xs text-amber-600 mt-2">⚠️ Please select a subject first.</p>
+  </div>
+
+  <!-- Photo gallery -->
+  <div x-show="photos.length>0">
+    <h3 class="font-semibold text-gray-700 mb-3">All Study Photos (<span x-text="photos.length"></span>)</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      <template x-for="ph in photos" :key="ph.id">
+        <div class="relative group rounded-2xl overflow-hidden border border-indigo-100 shadow-sm cursor-pointer" @click="previewPhoto=ph;showPhotoModal=true">
+          <img :src="ph.dataUrl" class="w-full h-32 object-cover"/>
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+            <button @click.stop="deletePhoto(ph.id)" class="p-2 bg-red-500 rounded-full text-white text-xs">🗑️</button>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate" x-text="subjectName(ph.subjectId)"></div>
+        </div>
+      </template>
+    </div>
+    <p class="text-xs text-gray-400 mt-3">ℹ️ Photos are stored locally in your browser. They are not cloud-backed unless Supabase is configured.</p>
+  </div>
+</div>
+
+<!-- ========== HISTORY ========== -->
+<div x-show="page==='history'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">📅 Study History</h2>
+  <div x-show="sessionHistory.length===0" class="text-center py-16 text-gray-400">
+    <div class="text-5xl mb-3">📭</div>
+    <p>No study sessions recorded yet.</p>
+  </div>
+  <div class="space-y-3">
+    <template x-for="h in [...sessionHistory].reverse()" :key="h.id">
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="font-semibold text-gray-800" x-text="h.subjectName"></p>
+            <p class="text-xs text-gray-500" x-text="h.topic"></p>
+          </div>
+          <span class="text-xs text-gray-400" x-text="formatDate(h.date)"></span>
+        </div>
+        <div class="flex gap-3 mt-2 flex-wrap">
+          <span class="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full" x-text="'⏱ '+h.duration+' min'"></span>
+          <span class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">✅ Completed</span>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ========== PROGRESS ========== -->
+<div x-show="page==='progress'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">📈 Progress</h2>
+
+  <!-- Overall stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 text-white text-center shadow">
+      <div class="text-3xl font-extrabold" x-text="totalSessions"></div>
+      <div class="text-xs opacity-80 mt-1">Sessions Done</div>
+    </div>
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white text-center shadow">
+      <div class="text-3xl font-extrabold" x-text="totalStudyMinutes"></div>
+      <div class="text-xs opacity-80 mt-1">Minutes Studied</div>
+    </div>
+    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-4 text-white text-center shadow">
+      <div class="text-3xl font-extrabold" x-text="photos.length"></div>
+      <div class="text-xs opacity-80 mt-1">Photos Taken</div>
+    </div>
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-4 text-white text-center shadow">
+      <div class="text-3xl font-extrabold" x-text="avgQuizScore"></div>
+      <div class="text-xs opacity-80 mt-1">Avg Quiz %</div>
+    </div>
+  </div>
+
+  <!-- Per-subject progress -->
+  <div class="space-y-4">
+    <template x-for="s in subjects" :key="s.id">
+      <div class="bg-white rounded-2xl p-5 shadow-sm">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <p class="font-semibold text-gray-800" x-text="s.subjectName"></p>
+            <p class="text-xs text-gray-500" x-text="s.topic"></p>
+          </div>
+          <span class="text-sm font-bold text-indigo-600" x-text="Math.round((s.completedSessions/Math.max(s.sessions,1))*100)+'%'"></span>
+        </div>
+        <div class="bg-gray-100 rounded-full h-3">
+          <div class="bg-gradient-to-r from-indigo-500 to-blue-400 h-3 rounded-full transition-all" :style="'width:'+Math.round((s.completedSessions/Math.max(s.sessions,1))*100)+'%'"></div>
+        </div>
+        <div class="flex gap-4 mt-2 text-xs text-gray-500">
+          <span x-text="s.completedSessions+'/'+s.sessions+' sessions'"></span>
+          <span x-text="subjectPhotos(s.id).length+' photos'"></span>
+          <span x-show="bestQuizScore(s.id)!==null" x-text="'Quiz: '+bestQuizScore(s.id)+'%'"></span>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ========== QUIZ ========== -->
+<div x-show="page==='quiz'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">🧠 AI Quiz</h2>
+
+  <!-- Quiz config -->
+  <div x-show="!quiz.active&&!quiz.results" class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <h3 class="font-semibold text-gray-700 mb-4">Configure Your Quiz</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
+        <select x-model="quiz.subjectId" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="">-- Choose subject --</option>
+          <template x-for="s in subjects" :key="s.id">
+            <option :value="s.id" x-text="s.subjectName+' – '+s.topic"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Number of Questions</label>
+        <select x-model.number="quiz.count" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="5">5 Questions</option>
+          <option value="10">10 Questions</option>
+          <option value="15">15 Questions</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Difficulty</label>
+        <select x-model="quiz.difficulty" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Format</label>
+        <select x-model="quiz.format" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          <option value="mcq">Multiple Choice</option>
+          <option value="tf">True / False</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-4">
+      <button @click="generateQuiz()" :disabled="!quiz.subjectId||quiz.generating" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-semibold transition">
+        <span x-show="!quiz.generating">🧠 Generate Quiz</span>
+        <span x-show="quiz.generating">⏳ Generating…</span>
+      </button>
+    </div>
+    <p class="text-xs text-gray-400 mt-3">ℹ️ Quizzes are generated from your subject and topic. For AI-powered questions, configure a Gemini API key in Settings.</p>
+  </div>
+
+  <!-- Active quiz -->
+  <div x-show="quiz.active&&quiz.questions.length>0">
+    <div class="bg-white rounded-2xl p-5 shadow-sm mb-4">
+      <div class="flex justify-between items-center mb-4">
+        <span class="text-xs text-gray-500">Question <span x-text="quiz.current+1"></span> of <span x-text="quiz.questions.length"></span></span>
+        <span class="text-xs font-medium" :class="quiz.difficulty==='easy'?'text-green-600':quiz.difficulty==='medium'?'text-amber-600':'text-red-600'" x-text="quiz.difficulty"></span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-1.5 mb-4">
+        <div class="bg-indigo-500 h-1.5 rounded-full transition-all" :style="'width:'+Math.round(((quiz.current+1)/quiz.questions.length)*100)+'%'"></div>
+      </div>
+      <p class="font-semibold text-gray-800 text-base mb-4" x-text="quiz.questions[quiz.current].q"></p>
+      <div class="space-y-2">
+        <template x-for="(opt,idx) in quiz.questions[quiz.current].opts" :key="idx">
+          <button @click="selectAnswer(idx)"
+            :class="['w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition',
+              quiz.answers[quiz.current]===idx
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 text-gray-700']"
+            x-text="opt"></button>
+        </template>
+      </div>
+    </div>
+    <div class="flex justify-between">
+      <button @click="quiz.current=Math.max(0,quiz.current-1)" :disabled="quiz.current===0" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 rounded-xl text-sm font-semibold transition">← Prev</button>
+      <button x-show="quiz.current<quiz.questions.length-1" @click="quiz.current++" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">Next →</button>
+      <button x-show="quiz.current===quiz.questions.length-1" @click="submitQuiz()" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition">Submit ✅</button>
+    </div>
+  </div>
+
+  <!-- Quiz results -->
+  <div x-show="quiz.results" class="fade-in">
+    <div class="bg-white rounded-2xl p-6 shadow-sm text-center mb-5">
+      <div class="text-5xl mb-3" x-text="quiz.results&&quiz.results.score>=80?'🏆':quiz.results&&quiz.results.score>=60?'👍':'💪'"></div>
+      <h3 class="text-2xl font-bold text-indigo-700 mb-1">Quiz Complete!</h3>
+      <p class="text-4xl font-extrabold" :class="quiz.results&&quiz.results.score>=80?'text-green-600':quiz.results&&quiz.results.score>=60?'text-amber-600':'text-red-500'" x-text="quiz.results?quiz.results.score+'%':''"></p>
+      <p class="text-sm text-gray-500 mt-1" x-text="quiz.results?quiz.results.correct+' / '+quiz.results.total+' correct':''"></p>
+    </div>
+    <!-- Answer review -->
+    <div class="space-y-3 mb-5">
+      <template x-for="(q,i) in (quiz.questions||[])" :key="i">
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+          <p class="text-sm font-semibold text-gray-800 mb-2" x-text="(i+1)+'. '+q.q"></p>
+          <div class="space-y-1">
+            <template x-for="(opt,j) in q.opts" :key="j">
+              <div :class="['text-xs px-3 py-1.5 rounded-lg',
+                j===q.answer?'bg-green-100 text-green-700 font-semibold':
+                (quiz.answers[i]===j&&j!==q.answer)?'bg-red-100 text-red-600':
+                'text-gray-500']" x-text="opt"></div>
+            </template>
+          </div>
+          <p x-show="q.explanation" class="text-xs text-gray-500 mt-2 italic" x-text="'💡 '+q.explanation"></p>
+        </div>
+      </template>
+    </div>
+    <div class="flex gap-3 flex-wrap">
+      <button @click="retakeQuiz()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">🔄 Retake</button>
+      <button @click="quiz={active:false,results:null,questions:[],answers:{},current:0,subjectId:'',count:5,difficulty:'medium',format:'mcq',generating:false}" class="px-5 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-sm font-semibold transition hover:bg-indigo-50">✨ New Quiz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== AI CHAT ========== -->
+<div x-show="page==='chat'" class="fade-in flex flex-col" style="height:calc(100vh - 140px)">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-2xl font-bold text-indigo-700">🤖 AI Chat</h2>
+    <button @click="clearChat()" x-show="chatMessages.length>0" class="text-xs text-gray-400 hover:text-red-500 transition">🗑 Clear</button>
+  </div>
+
+  <!-- API key notice -->
+  <div x-show="!geminiKey" class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700 mb-3">
+    ⚠️ No Gemini API key configured. Go to <button @click="goto('settings')" class="underline font-medium">Settings</button> to add your key. Chat will use a fallback helper mode until then.
+  </div>
+
+  <!-- Messages -->
+  <div class="flex-1 overflow-y-auto bg-white rounded-2xl p-4 shadow-sm mb-3 space-y-4" id="chatBox">
+    <div x-show="chatMessages.length===0" class="text-center py-8 text-gray-400">
+      <div class="text-4xl mb-3">💬</div>
+      <p class="text-sm">Ask me anything about your studies!</p>
+      <!-- Suggested prompts -->
+      <div class="grid grid-cols-2 gap-2 mt-4 max-w-xs mx-auto">
+        <template x-for="prompt in suggestedPrompts" :key="prompt">
+          <button @click="chatInput=prompt;sendChat()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-2 rounded-xl transition text-left">
+            <span x-text="prompt"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+    <template x-for="msg in chatMessages" :key="msg.id">
+      <div :class="['flex',msg.role==='user'?'justify-end':'justify-start']">
+        <div :class="['max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 text-sm leading-relaxed',
+          msg.role==='user'?'bubble-user bg-indigo-600 text-white':'bubble-ai bg-gray-100 text-gray-800']">
+          <p x-text="msg.content" class="whitespace-pre-wrap"></p>
+          <p class="text-xs mt-1" :class="msg.role==='user'?'text-indigo-200':'text-gray-400'" x-text="msg.time"></p>
+        </div>
+      </div>
+    </template>
+    <!-- Typing indicator -->
+    <div x-show="chatTyping" class="flex justify-start">
+      <div class="bubble-ai bg-gray-100 px-4 py-3 flex gap-1 items-center">
+        <span class="w-2 h-2 bg-gray-400 rounded-full dot1"></span>
+        <span class="w-2 h-2 bg-gray-400 rounded-full dot2"></span>
+        <span class="w-2 h-2 bg-gray-400 rounded-full dot3"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="bg-white rounded-2xl p-3 shadow-sm flex gap-2">
+    <textarea x-model="chatInput" @keydown.enter.prevent="if(!$event.shiftKey)sendChat()" rows="2" placeholder="Ask a question… (Enter to send, Shift+Enter for new line)" class="flex-1 resize-none text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+    <button @click="sendChat()" :disabled="!chatInput.trim()||chatTyping" class="px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl font-semibold text-sm transition self-end py-2">Send</button>
+  </div>
+</div>
+
+<!-- ========== REMINDERS ========== -->
+<div x-show="page==='reminders'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">🔔 Reminders</h2>
+  <p class="text-xs text-gray-400 mb-4">ℹ️ Browser notifications are not guaranteed when the browser is closed or the tab is in background.</p>
+
+  <!-- Add reminder -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <h3 class="font-semibold text-gray-700 mb-4">Add Reminder</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Label</label>
+        <input x-model="reminderForm.label" type="text" placeholder="e.g. Math session" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Time</label>
+        <input x-model="reminderForm.time" type="time" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      </div>
+      <div class="flex items-end">
+        <button @click="addReminder()" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">➕ Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reminders list -->
+  <div x-show="reminders.length===0" class="text-center py-10 text-gray-400">
+    <div class="text-4xl mb-2">🔕</div>
+    <p>No reminders set.</p>
+  </div>
+  <div class="space-y-3">
+    <template x-for="r in reminders" :key="r.id">
+      <div class="bg-white rounded-2xl p-4 shadow-sm card-hover flex items-center justify-between">
+        <div>
+          <p class="font-medium text-gray-800" x-text="r.label"></p>
+          <p class="text-xs text-indigo-500" x-text="r.time"></p>
+        </div>
+        <div class="flex gap-2">
+          <button @click="testReminder(r)" class="p-2 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-sm transition">🔔</button>
+          <button @click="deleteReminder(r.id)" class="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-sm transition">🗑️</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<!-- ========== SETTINGS ========== -->
+<div x-show="page==='settings'" class="fade-in">
+  <h2 class="text-2xl font-bold text-indigo-700 mb-5">⚙️ Settings</h2>
+
+  <!-- Gemini API Key -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <h3 class="font-semibold text-gray-700 mb-1">🤖 Gemini API Key</h3>
+    <p class="text-xs text-gray-500 mb-3">Used for AI Chat and smart quiz generation. Get your key at <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-500 underline">aistudio.google.com</a>. Key is stored locally only.</p>
+    <div class="flex gap-2">
+      <input x-model="geminiKeyInput" :type="showKey?'text':'password'" placeholder="AIza…" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+      <button @click="showKey=!showKey" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm transition" x-text="showKey?'🙈':'👁️'"></button>
+      <button @click="saveGeminiKey()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition">Save</button>
+    </div>
+    <p x-show="geminiKey" class="text-xs text-green-600 mt-2">✅ API key configured</p>
+  </div>
+
+  <!-- Data management -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm mb-5">
+    <h3 class="font-semibold text-gray-700 mb-3">💾 Data Management</h3>
+    <p class="text-xs text-gray-500 mb-3">All data is stored in your browser's localStorage. Export to back up your data.</p>
+    <div class="flex flex-wrap gap-3">
+      <button @click="exportData()" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition">⬇️ Export JSON</button>
+      <label class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-semibold transition cursor-pointer">
+        ⬆️ Import JSON
+        <input type="file" accept=".json" class="hidden" @change="importData($event)"/>
+      </label>
+      <button @click="confirmClearData()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition">🗑️ Clear All Data</button>
+    </div>
+  </div>
+
+  <!-- Supabase info -->
+  <div class="bg-white rounded-2xl p-5 shadow-sm">
+    <h3 class="font-semibold text-gray-700 mb-2">🗄️ Supabase</h3>
+    <p class="text-xs text-gray-500">Supabase cloud sync is not configured in this build. All data uses localStorage. To enable cloud sync, add your Supabase URL and anon key as environment variables and rebuild.</p>
+    <div class="mt-3 flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+      <span class="text-xs text-amber-600">Local storage only</span>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Photo preview modal -->
+<div x-show="showPhotoModal" class="fixed inset-0 z-50 modal-backdrop bg-black/60 flex items-center justify-center p-4" @click.self="showPhotoModal=false">
+  <div class="bg-white rounded-2xl p-4 max-w-lg w-full shadow-xl fade-in">
+    <div class="flex justify-between items-center mb-3">
+      <p class="font-semibold text-gray-700" x-text="previewPhoto?subjectName(previewPhoto.subjectId):''"></p>
+      <button @click="showPhotoModal=false" class="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition">✕</button>
+    </div>
+    <img x-show="previewPhoto" :src="previewPhoto?previewPhoto.dataUrl:''" class="w-full rounded-xl"/>
+    <p class="text-xs text-gray-400 mt-2" x-text="previewPhoto?formatDate(previewPhoto.date):''"></p>
+  </div>
+</div>
+
+<!-- Timer completion modal -->
+<div x-show="showCompletionModal" class="fixed inset-0 z-50 modal-backdrop bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl fade-in text-center">
+    <div class="text-5xl mb-3">🎉</div>
+    <h3 class="text-xl font-bold text-indigo-700 mb-2">Session Complete!</h3>
+    <p class="text-sm text-gray-600 mb-5">Great work! Take a photo of your notes to mark this session as complete.</p>
+    <!-- Stop alarm -->
+    <button x-show="alarmPlaying" @click="stopAlarm()" class="mb-3 w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl text-sm font-semibold transition">🔕 Stop Sound</button>
+    <div class="flex gap-3">
+      <button @click="goToPhoto()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">📸 Take Photo</button>
+      <button @click="showCompletionModal=false;stopAlarm()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition">Later</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm clear data -->
+<div x-show="showClearConfirm" class="fixed inset-0 z-50 modal-backdrop bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl fade-in text-center">
+    <div class="text-4xl mb-3">⚠️</div>
+    <h3 class="text-lg font-bold text-gray-800 mb-2">Clear All Data?</h3>
+    <p class="text-sm text-gray-500 mb-5">This will permanently delete all subjects, sessions, photos, and history. This cannot be undone.</p>
+    <div class="flex gap-3">
+      <button @click="clearAllData()" class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition">Yes, Clear</button>
+      <button @click="showClearConfirm=false" class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAIN SCRIPT ===================== -->
+<script>
+function studyMate() {
+  return {
+    // ---- NAV ----
+    page: 'home',
+    mobileNav: false,
+    navItems: [
+      {id:'home',label:'🏠 Home'},
+      {id:'setup',label:'📝 Setup'},
+      {id:'dashboard',label:'📊 Dashboard'},
+      {id:'timer',label:'⏱ Timer'},
+      {id:'photos',label:'📸 Photos'},
+      {id:'history',label:'📅 History'},
+      {id:'progress',label:'📈 Progress'},
+      {id:'quiz',label:'🧠 Quiz'},
+      {id:'chat',label:'🤖 AI Chat'},
+      {id:'reminders',label:'🔔 Reminders'},
+      {id:'settings',label:'⚙️ Settings'},
+    ],
+
+    // ---- TOAST ----
+    toast: {show:false, msg:'', type:'success'},
+    showToast(msg, type='success') {
+      this.toast = {show:true, msg, type};
+      setTimeout(()=>this.toast.show=false, 3000);
+    },
+
+    // ---- SUBJECTS ----
+    subjects: [],
+    editingSubject: null,
+    form: {subjectName:'', topic:'', startTime:'09:00', reminderTime:'', duration:25, sessions:1},
+
+    saveSubject() {
+      if (!this.form.subjectName.trim() || !this.form.topic.trim()) {
+        this.showToast('Subject name and topic are required.','error'); return;
+      }
+      if (this.editingSubject) {
+        const idx = this.subjects.findIndex(s=>s.id===this.editingSubject.id);
+        if (idx!==-1) {
+          this.subjects[idx] = {...this.subjects[idx], ...this.form};
+        }
+        this.editingSubject = null;
+        this.showToast('Subject updated!');
+      } else {
+        this.subjects.push({
+          id: Date.now().toString(),
+          ...this.form,
+          completedSessions: 0,
+          createdAt: new Date().toISOString()
+        });
+        this.showToast('Subject added!');
+      }
+      this.form = {subjectName:'', topic:'', startTime:'09:00', reminderTime:'', duration:25, sessions:1};
+      this.save();
+    },
+    editSubject(s) {
+      this.editingSubject = s;
+      this.form = {subjectName:s.subjectName, topic:s.topic, startTime:s.startTime, reminderTime:s.reminderTime||'', duration:s.duration, sessions:s.sessions};
+    },
+    cancelEdit() {
+      this.editingSubject = null;
+      this.form = {subjectName:'', topic:'', startTime:'09:00', reminderTime:'', duration:25, sessions:1};
+    },
+    deleteSubject(id) {
+      this.subjects = this.subjects.filter(s=>s.id!==id);
+      this.save();
+      this.showToast('Subject deleted.','info');
+    },
+
+    // ---- COMPUTED ----
+    get todayPlan() {
+      return this.subjects.find(s=>s.completedSessions < s.sessions) || this.subjects[0] || null;
+    },
+    get totalSessions() {
+      return this.subjects.reduce((a,s)=>a+s.completedSessions, 0);
+    },
+    get totalStudyMinutes() {
+      return this.sessionHistory.reduce((a,h)=>a+(h.duration||0),0);
+    },
+    get avgQuizScore() {
+      if (!this.quizAttempts.length) return '--';
+      return Math.round(this.quizAttempts.reduce((a,q)=>a+q.score,0)/this.quizAttempts.length)+'%';
+    },
+
+    subjectPhotos(id) { return this.photos.filter(p=>p.subjectId===id); },
+    subjectName(id) {
+      const s = this.subjects.find(s=>s.id===id);
+      return s ? s.subjectName : 'Unknown';
+    },
+    bestQuizScore(id) {
+      const attempts = this.quizAttempts.filter(a=>a.subjectId===id);
+      if (!attempts.length) return null;
+      return Math.max(...attempts.map(a=>a.score));
+    },
+
+    // ---- TIMER ----
+    timer: {subjectId:'', duration:25, custom:false, customVal:25, running:false, paused:false, endTime:null, pausedRemaining:null},
+    timerInterval: null,
+    timerDisplay: '25:00',
+    timerProgress: 0,
+    showCompletionModal: false,
+    alarmPlaying: false,
+    alarmCtx: null,
+    alarmNodes: [],
+
+    currentTimerSubject() {
+      return this.subjects.find(s=>s.id===this.timer.subjectId) || null;
+    },
+    onTimerSubjectChange() {
+      const s = this.currentTimerSubject();
+      if (s) { this.setTimerDuration(s.duration); }
+    },
+    setTimerDuration(min) {
+      if (!min || min < 1) return;
+      this.timer.duration = min;
+      this.timer.custom = false;
+      this.timerDisplay = this.fmtTime(min*60);
+      this.timerProgress = 0;
+    },
+    fmtTime(sec) {
+      const m = Math.floor(sec/60).toString().padStart(2,'0');
+      const s = (sec%60).toString().padStart(2,'0');
+      return m+':'+s;
+    },
+    startTimer() {
+      const sub = this.currentTimerSubject();
+      if (!sub || sub.sessions===0 || sub.completedSessions>=sub.sessions) return;
+      const totalSec = this.timer.duration * 60;
+      this.timer.endTime = Date.now() + totalSec * 1000;
+      this.timer.running = true;
+      this.timer.paused = false;
+      this.timer.pausedRemaining = null;
+      this.saveTimerState();
+      this.tickTimer();
+    },
+    pauseTimer() {
+      if (!this.timer.running) return;
+      const remaining = Math.max(0, Math.round((this.timer.endTime - Date.now())/1000));
+      this.timer.pausedRemaining = remaining;
+      this.timer.running = false;
+      this.timer.paused = true;
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+      this.saveTimerState();
+    },
+    resumeTimer() {
+      if (!this.timer.paused) return;
+      this.timer.endTime = Date.now() + this.timer.pausedRemaining * 1000;
+      this.timer.running = true;
+      this.timer.paused = false;
+      this.timer.pausedRemaining = null;
+      this.saveTimerState();
+      this.tickTimer();
+    },
+    stopTimer() {
+      this.timer.running = false;
+      this.timer.paused = false;
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+      this.timerDisplay = this.fmtTime(this.timer.duration*60);
+      this.timerProgress = 0;
+      this.timer.endTime = null;
+      this.saveTimerState();
+    },
+    resetTimer() {
+      this.stopTimer();
+      this.showToast('Timer reset.','info');
+    },
+    tickTimer() {
+      clearInterval(this.timerInterval);
+      this.timerInterval = setInterval(()=>{
+        const remaining = Math.max(0, Math.round((this.timer.endTime - Date.now())/1000));
+        const total = this.timer.duration * 60;
+        this.timerDisplay = this.fmtTime(remaining);
+        this.timerProgress = 1 - remaining/total;
+        if (remaining <= 0) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+          this.timer.running = false;
+          this.timer.endTime = null;
+          this.timerProgress = 1;
+          this.onTimerComplete();
+        }
+      }, 500);
+    },
+    onTimerComplete() {
+      this.playAlarm();
+      this.showCompletionModal = true;
+      this.saveTimerState();
+    },
+    playAlarm() {
+      if (this.alarmPlaying) return;
+      try {
+        this.alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.alarmPlaying = true;
+        const playBeep = () => {
+          if (!this.alarmPlaying) return;
+          const osc = this.alarmCtx.createOscillator();
+          const gain = this.alarmCtx.createGain();
+          osc.connect(gain); gain.connect(this.alarmCtx.destination);
+          osc.type = 'sine'; osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.3, this.alarmCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.alarmCtx.currentTime + 0.8);
+          osc.start(); osc.stop(this.alarmCtx.currentTime + 0.8);
+          this.alarmNodes.push(osc);
+          if (this.alarmPlaying) setTimeout(playBeep, 1200);
+        };
+        playBeep();
+      } catch(e) { console.warn('Audio not supported'); }
+    },
+    stopAlarm() {
+      this.alarmPlaying = false;
+      try { if (this.alarmCtx) { this.alarmCtx.close(); this.alarmCtx = null; } } catch(e){}
+      this.alarmNodes = [];
+    },
+    goToPhoto() {
+      this.showCompletionModal = false;
+      this.stopAlarm();
+      // Pre-select subject
+      this.photoSubjectId = this.timer.subjectId;
+      // Reset timer for next session
+      this.timerDisplay = this.fmtTime(this.timer.duration*60);
+      this.timerProgress = 0;
+      this.goto('photos');
+    },
+    saveTimerState() {
+      localStorage.setItem('sm_timer', JSON.stringify({
+        subjectId: this.timer.subjectId,
+        duration: this.timer.duration,
+        endTime: this.timer.endTime,
+        paused: this.timer.paused,
+        pausedRemaining: this.timer.pausedRemaining
+      }));
+    },
+    restoreTimerState() {
+      try {
+        const t = JSON.parse(localStorage.getItem('sm_timer')||'{}');
+        if (t.subjectId) {
+          this.timer.subjectId = t.subjectId;
+          this.timer.duration = t.duration || 25;
+          if (t.endTime && t.endTime > Date.now()) {
+            this.timer.endTime = t.endTime;
+            this.timer.running = true;
+            this.tickTimer();
+          } else if (t.paused && t.pausedRemaining) {
+            this.timer.paused = true;
+            this.timer.pausedRemaining = t.pausedRemaining;
+            this.timerDisplay = this.fmtTime(t.pausedRemaining);
+          } else {
+            this.timerDisplay = this.fmtTime(this.timer.duration*60);
+          }
+        }
+      } catch(e){}
+    },
+
+    // Start study from dashboard
+    startStudy(s) {
+      this.timer.subjectId = s.id;
+      this.setTimerDuration(s.duration);
+      this.goto('timer');
+    },
+
+    // ---- CAMERA ----
+    cameraActive: false,
+    cameraError: '',
+    capturedPhoto: null,
+    photoSubjectId: '',
+    uploadingPhoto: false,
+    showPhotoModal: false,
+    previewPhoto: null,
+    stream: null,
+
+    async openCamera() {
+      this.cameraError = '';
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: {ideal:'environment'} }, audio: false
+        });
+        this.cameraActive = true;
+        await this.$nextTick();
+        const video = document.getElementById('camVideo');
+        if (video) { video.srcObject = this.stream; }
+      } catch(e) {
+        this.cameraError = 'Camera permission denied or unavailable. ' + e.message;
+      }
+    },
+    stopCamera() {
+      if (this.stream) { this.stream.getTracks().forEach(t=>t.stop()); this.stream = null; }
+      this.cameraActive = false;
+      this.capturedPhoto = null;
+    },
+    capturePhoto() {
+      const video = document.getElementById('camVideo');
+      const canvas = document.getElementById('camCanvas');
+      if (!video || !canvas) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      this.capturedPhoto = canvas.toDataURL('image/jpeg', 0.85);
+    },
+    async uploadCapturedPhoto() {
+      if (!this.capturedPhoto || !this.photoSubjectId) {
+        this.showToast('Select a subject before saving.','error'); return;
+      }
+      this.uploadingPhoto = true;
+      try {
+        await this.savePhoto(this.capturedPhoto, this.photoSubjectId);
+        this.capturedPhoto = null;
+        this.stopCamera();
+        this.showToast('Photo saved!');
+      } catch(e) {
+        this.showToast('Failed to save photo: '+e.message,'error');
+      }
+      this.uploadingPhoto = false;
+    },
+    handleGalleryUpload(evt) {
+      if (!this.photoSubjectId) { this.showToast('Select a subject first.','error'); return; }
+      const file = evt.target.files[0];
+      if (!file) return;
+      if (file.size > 10*1024*1024) { this.showToast('File too large (max 10 MB).','error'); return; }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          await this.savePhoto(e.target.result, this.photoSubjectId);
+          this.showToast('Photo uploaded!');
+        } catch(err) {
+          this.showToast('Upload failed: '+err.message,'error');
+        }
+      };
+      reader.readAsDataURL(file);
+      evt.target.value = '';
+    },
+    async savePhoto(dataUrl, subjectId) {
+      const photo = {
+        id: Date.now().toString(),
+        dataUrl,
+        subjectId,
+        date: new Date().toISOString()
+      };
+      this.photos.push(photo);
+      // Mark session complete
+      const idx = this.subjects.findIndex(s=>s.id===subjectId);
+      if (idx !== -1 && this.subjects[idx].completedSessions < this.subjects[idx].sessions) {
+        this.subjects[idx].completedSessions++;
+        // Log to history
+        this.sessionHistory.push({
+          id: Date.now().toString()+'h',
+          subjectId,
+          subjectName: this.subjects[idx].subjectName,
+          topic: this.subjects[idx].topic,
+          duration: this.subjects[idx].duration,
+          date: new Date().toISOString()
+        });
+      }
+      this.save();
+    },
+    deletePhoto(id) {
+      this.photos = this.photos.filter(p=>p.id!==id);
+      this.save();
+      this.showToast('Photo deleted.','info');
+    },
+
+    // ---- SESSION HISTORY ----
+    sessionHistory: [],
+
+    // ---- REMINDERS ----
+    reminders: [],
+    reminderForm: {label:'', time:''},
+    reminderTimers: [],
+
+    addReminder() {
+      if (!this.reminderForm.label.trim() || !this.reminderForm.time) {
+        this.showToast('Label and time required.','error'); return;
+      }
+      this.reminders.push({id:Date.now().toString(), ...this.reminderForm});
+      this.reminderForm = {label:'', time:''};
+      this.save();
+      this.scheduleReminders();
+      this.showToast('Reminder added!');
+    },
+    deleteReminder(id) {
+      this.reminders = this.reminders.filter(r=>r.id!==id);
+      this.save();
+      this.showToast('Reminder removed.','info');
+    },
+    testReminder(r) {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(p=>{
+          if (p==='granted') new Notification('StudyMate AI 🔔', {body: r.label});
+          else this.showToast('Notification permission denied.','error');
+        });
+      } else {
+        this.showToast('Notifications not supported in this browser.','info');
+      }
+    },
+    scheduleReminders() {
+      this.reminderTimers.forEach(t=>clearTimeout(t));
+      this.reminderTimers = [];
+      const now = new Date();
+      this.reminders.forEach(r=>{
+        const [h,m] = r.time.split(':').map(Number);
+        const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+        if (target > now) {
+          const delay = target - now;
+          const t = setTimeout(()=>{
+            if ('Notification' in window && Notification.permission==='granted') {
+              new Notification('StudyMate AI 🔔', {body: r.label});
+            } else {
+              this.showToast('⏰ '+r.label, 'info');
+            }
+          }, delay);
+          this.reminderTimers.push(t);
+        }
+      });
+    },
+    requestNotifPermission() {
+      if ('Notification' in window) Notification.requestPermission();
+    },
+
+    // ---- PHOTOS STORE ----
+    photos: [],
+
+    // ---- QUIZ ----
+    quiz: {active:false, results:null, questions:[], answers:{}, current:0, subjectId:'', count:5, difficulty:'medium', format:'mcq', generating:false},
+    quizAttempts: [],
+
+    openQuiz(s) {
+      this.quiz.subjectId = s.id;
+      this.goto('quiz');
+    },
+
+    async generateQuiz() {
+      if (!this.quiz.subjectId) return;
+      const sub = this.subjects.find(s=>s.id===this.quiz.subjectId);
+      if (!sub) return;
+      this.quiz.generating = true;
+      try {
+        let questions;
+        if (this.geminiKey) {
+          questions = await this.generateQuizAI(sub);
+        } else {
+          questions = this.generateQuizLocal(sub);
+        }
+        this.quiz.questions = questions;
+        this.quiz.answers = {};
+        this.quiz.current = 0;
+        this.quiz.active = true;
+        this.quiz.results = null;
+      } catch(e) {
+        this.showToast('Quiz generation failed: '+e.message,'error');
+      }
+      this.quiz.generating = false;
+    },
+
+    async generateQuizAI(sub) {
+      const isTF = this.quiz.format === 'tf';
+      const prompt = `Generate ${this.quiz.count} ${this.quiz.difficulty} difficulty ${isTF?'True/False':'multiple choice'} quiz questions about "${sub.topic}" in "${sub.subjectName}".
+Return ONLY a JSON array like:
+[{"q":"question","opts":["A","B","C","D"],"answer":0,"explanation":"why"}]
+For True/False use opts:["True","False"] and answer 0 or 1.
+No markdown, no extra text.`;
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiKey}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+      });
+      if (!res.ok) throw new Error('Gemini API error: '+res.status);
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error('Could not parse quiz response.');
+      return JSON.parse(match[0]);
+    },
+
+    generateQuizLocal(sub) {
+      // Generate template-based questions from subject/topic
+      const isTF = this.quiz.format === 'tf';
+      const questions = [];
+      const templates = isTF ? [
+        { q: `"${sub.topic}" is a topic within ${sub.subjectName}.`, answer: 0 },
+        { q: `Studying ${sub.topic} requires no prior knowledge.`, answer: 1 },
+        { q: `${sub.subjectName} is an academic subject.`, answer: 0 },
+        { q: `${sub.topic} has no real-world applications.`, answer: 1 },
+        { q: `Regular practice helps in understanding ${sub.topic}.`, answer: 0 },
+        { q: `${sub.topic} can only be learned in one session.`, answer: 1 },
+        { q: `Understanding ${sub.subjectName} concepts is important for exams.`, answer: 0 },
+        { q: `Notes are not helpful when studying ${sub.topic}.`, answer: 1 },
+        { q: `${sub.topic} is part of the curriculum in ${sub.subjectName}.`, answer: 0 },
+        { q: `Quizzes are ineffective for testing knowledge of ${sub.topic}.`, answer: 1 },
+        { q: `Reviewing ${sub.topic} regularly improves retention.`, answer: 0 },
+        { q: `${sub.subjectName} has no connection to everyday life.`, answer: 1 },
+        { q: `Making summaries helps in studying ${sub.topic}.`, answer: 0 },
+        { q: `${sub.topic} concepts are impossible to master.`, answer: 1 },
+        { q: `Taking breaks during study sessions improves focus.`, answer: 0 },
+      ] : [
+        { q: `Which of the following best describes ${sub.topic}?`, opts:[`A core concept in ${sub.subjectName}`,`An unrelated topic`,`A cooking technique`,`A sports term`], answer:0, explanation:`${sub.topic} is a key concept within ${sub.subjectName}.` },
+        { q: `What subject does ${sub.topic} belong to?`, opts:[`${sub.subjectName}`,`Physical Education`,`Art History`,`Culinary Arts`], answer:0, explanation:`${sub.topic} is studied under ${sub.subjectName}.` },
+        { q: `The best way to learn ${sub.topic} is to:`, opts:[`Practice regularly and review notes`,`Memorise without understanding`,`Skip difficult parts`,`Only read once`], answer:0, explanation:`Regular practice and review are the most effective study methods.` },
+        { q: `Which study habit helps most when learning ${sub.topic}?`, opts:[`Taking organised notes`,`Studying without breaks`,`Avoiding practice problems`,`Ignoring feedback`], answer:0, explanation:`Organised notes improve retention and understanding.` },
+        { q: `How many sessions are recommended for mastering ${sub.topic}?`, opts:[`Multiple focused sessions`,`One very long session`,`No sessions needed`,`Random sessions`], answer:0, explanation:`Spaced repetition across multiple sessions is most effective.` },
+        { q: `Which resource is most helpful for ${sub.subjectName}?`, opts:[`Textbooks and practice exercises`,`Social media only`,`Guessing`,`No resources`], answer:0, explanation:`Textbooks and exercises provide structured learning.` },
+        { q: `What does consistent study of ${sub.topic} improve?`, opts:[`Long-term retention`,`Short-term memory only`,`Nothing`,`Confusion`], answer:0, explanation:`Consistent study leads to long-term understanding.` },
+        { q: `A quiz on ${sub.topic} helps you:`, opts:[`Identify knowledge gaps`,`Waste time`,`Avoid the subject`,`Memorise less`], answer:0, explanation:`Quizzes reveal what you know and what needs more work.` },
+        { q: `Effective revision of ${sub.topic} involves:`, opts:[`Summarising key points`,`Reading passively`,`Skipping examples`,`Avoiding questions`], answer:0, explanation:`Active summarisation strengthens memory.` },
+        { q: `Which of these is a goal of studying ${sub.subjectName}?`, opts:[`Understanding core concepts`,`Avoiding all exams`,`Learning unrelated skills`,`Memorising random facts`], answer:0, explanation:`Core concept understanding is the foundation of any subject.` },
+        { q: `When should you review ${sub.topic} notes?`, opts:[`Shortly after studying`,`Never`,`Only during exams`,`Before sleeping only`], answer:0, explanation:`Reviewing shortly after learning reinforces memory.` },
+        { q: `What is a sign you understand ${sub.topic}?`, opts:[`You can explain it in your own words`,`You can only recite definitions`,`You feel confused`,`You avoid it`], answer:0, explanation:`True understanding means you can explain concepts clearly.` },
+        { q: `Group study for ${sub.topic} is beneficial because:`, opts:[`It exposes you to different perspectives`,`It wastes time`,`It replaces individual study`,`It reduces focus`], answer:0, explanation:`Different viewpoints deepen understanding.` },
+        { q: `Which approach is best for difficult parts of ${sub.topic}?`, opts:[`Break it into smaller parts`,`Skip it entirely`,`Memorise without understanding`,`Rush through it`], answer:0, explanation:`Breaking complex topics into parts makes them manageable.` },
+        { q: `Flashcards help with ${sub.topic} because they:`, opts:[`Enable active recall`,`Are decorative only`,`Replace reading`,`Have no benefit`], answer:0, explanation:`Active recall is one of the most effective learning techniques.` },
+      ];
+      const count = Math.min(this.quiz.count, templates.length);
+      const shuffled = templates.sort(()=>Math.random()-.5).slice(0, count);
+      if (isTF) {
+        return shuffled.map(t=>({q:t.q, opts:['True','False'], answer:t.answer, explanation:t.answer===0?'This statement is true.':'This statement is false.'}));
+      }
+      return shuffled;
+    },
+
+    selectAnswer(idx) {
+      this.quiz.answers[this.quiz.current] = idx;
+    },
+    submitQuiz() {
+      let correct = 0;
+      this.quiz.questions.forEach((q,i)=>{ if (this.quiz.answers[i]===q.answer) correct++; });
+      const score = Math.round((correct/this.quiz.questions.length)*100);
+      this.quiz.results = {score, correct, total:this.quiz.questions.length};
+      this.quiz.active = false;
+      this.quizAttempts.push({
+        id: Date.now().toString(),
+        subjectId: this.quiz.subjectId,
+        score,
+        date: new Date().toISOString()
+      });
+      this.save();
+    },
+    retakeQuiz() {
+      this.quiz.answers = {};
+      this.quiz.current = 0;
+      this.quiz.active = true;
+      this.quiz.results = null;
+    },
+
+    // ---- AI CHAT ----
+    chatMessages: [],
+    chatInput: '',
+    chatTyping: false,
+    geminiKey: '',
+    geminiKeyInput: '',
+    showKey: false,
+    suggestedPrompts: [
+      'Explain this topic simply',
+      'Give me an example',
+      'Help me solve this problem',
+      'Summarise my notes'
+    ],
+
+    async sendChat() {
+      const msg = this.chatInput.trim();
+      if (!msg || this.chatTyping) return;
+      this.chatInput = '';
+      // Push user message immediately so history is available inside callGeminiChat
+      const userMsg = { id: Date.now().toString(), role: 'user', content: msg, time: this.nowTime() };
+      this.chatMessages.push(userMsg);
+      this.scrollChat();
+      this.chatTyping = true;
+      let reply = '';
+      try {
+        if (this.geminiKey) {
+          reply = await this.callGeminiChat(msg);
+        } else {
+          reply = this.localChatReply(msg);
+        }
+        this.chatTyping = false;
+        this.chatMessages.push({ id: Date.now().toString() + 'r', role: 'ai', content: reply, time: this.nowTime() });
+      } catch (e) {
+        // Resolve a clear, actionable error message for the student
+        let errText = '⚠️ Could not reach the AI. Please try again.';
+        if (e && e.message) {
+          if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError') || e.message.includes('network')) {
+            errText = '⚠️ Network error — check your internet connection and try again.';
+          } else if (e.message.includes('API key') || e.message.includes('INVALID_ARGUMENT') || e.message.toLowerCase().includes('invalid')) {
+            errText = '⚠️ Invalid API key. Go to ⚙️ Settings and enter a valid Gemini API key.';
+          } else if (e.message.includes('quota') || e.message.includes('429') || e.message.includes('RESOURCE_EXHAUSTED')) {
+            errText = '⚠️ API quota exceeded. Please wait a moment and try again.';
+          } else if (e.message.includes('blocked') || e.message.includes('SAFETY')) {
+            errText = '⚠️ Response blocked by safety filter. Try rephrasing your question.';
+          } else {
+            errText = '⚠️ ' + e.message;
+          }
+        }
+        // Clear typing BEFORE pushing error so the indicator does not overlap the bubble
+        this.chatTyping = false;
+        this.chatMessages.push({ id: Date.now().toString() + 'e', role: 'ai', content: errText, time: this.nowTime() });
+      }
+      this.scrollChat();
+    },
+
+    async callGeminiChat(msg) {
+      // chatMessages already has the current user turn at the end (pushed by sendChat).
+      // slice(-11, -1) grabs up to the 10 messages BEFORE it, preserving conversation history.
+      const priorMessages = this.chatMessages.slice(-11, -1);
+
+      // Sanitize history: Gemini requires strict user → model → user alternation.
+      // Merge consecutive same-role entries to avoid 400 errors.
+      const sanitized = [];
+      for (const m of priorMessages) {
+        const role = m.role === 'user' ? 'user' : 'model';
+        if (sanitized.length > 0 && sanitized[sanitized.length - 1].role === role) {
+          // Append to the last same-role part instead of creating a new turn
+          sanitized[sanitized.length - 1].parts[0].text += '\n' + m.content;
+        } else {
+          sanitized.push({ role, parts: [{ text: m.content }] });
+        }
+      }
+      // If the last prior turn is 'user' (no AI reply yet), remove it to avoid two consecutive user turns
+      if (sanitized.length > 0 && sanitized[sanitized.length - 1].role === 'user') {
+        sanitized.pop();
+      }
+
+      // Build final contents array: history + current user message
+      const contents = [...sanitized, { role: 'user', parts: [{ text: msg }] }];
+
+      let res;
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              // systemInstruction is the correct Gemini v1beta field — NOT a user turn in contents
+              systemInstruction: {
+                parts: [{
+                  text: 'You are StudyMate AI — a helpful, friendly, and encouraging study assistant. ' +
+                        'Answer every student question clearly and accurately using simple language, step-by-step explanations, and real-world examples. ' +
+                        'Cover any subject: mathematics, science, programming, history, literature, languages, or general study skills. ' +
+                        'For follow-up questions, refer back to the prior conversation. Be encouraging and concise.'
+                }]
+              },
+              contents,
+              generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+            })
+          }
+        );
+      } catch (networkErr) {
+        throw new Error('Failed to fetch — ' + (networkErr.message || 'network error'));
+      }
+
+      if (!res.ok) {
+        let apiMsg = 'HTTP ' + res.status;
+        try { const eb = await res.json(); apiMsg = eb?.error?.message || apiMsg; } catch (_) {}
+        throw new Error(apiMsg);
+      }
+
+      const data = await res.json();
+
+      // Handle blocked responses
+      const blockReason = data?.promptFeedback?.blockReason;
+      if (blockReason) throw new Error('blocked by SAFETY filter (' + blockReason + ')');
+
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text || !text.trim()) throw new Error('AI returned an empty response. Please rephrase your question.');
+
+      return text.trim();
+    },
+
+    localChatReply(msg) {
+      const q = msg.toLowerCase();
+      if (q.includes('hello') || q.includes('hi') || q.includes('hey'))
+        return "👋 Hi! I'm StudyMate AI in offline mode.\n\nAdd your Gemini API key in ⚙️ Settings to get full AI answers for any question!";
+      if (q.includes('explain') || q.includes('what is') || q.includes('what are'))
+        return "📖 To understand any topic:\n1. Break it into smaller concepts.\n2. Study each part one at a time.\n3. Explain it back in your own words.\n\nAdd your Gemini API key for a detailed AI explanation of any specific topic!";
+      if (q.includes('example'))
+        return "💡 Examples make concepts stick. Check your textbook's worked examples or search online.\n\nWith a Gemini API key I can generate custom examples tailored to exactly what you're studying!";
+      if (q.includes('solve') || q.includes('problem') || q.includes('calculate') || q.includes('find'))
+        return "🔢 Problem-solving steps:\n1. What is being asked?\n2. Which concept or formula applies?\n3. Work through each step.\n4. Check: does the answer make sense?\n\nAdd your API key for full step-by-step solutions!";
+      if (q.includes('summar') || q.includes('notes') || q.includes('revise') || q.includes('review'))
+        return "📝 Effective note revision:\n1. Read through once for the big picture.\n2. Highlight only the key ideas.\n3. Rewrite in your own words.\n4. Create a bullet list or mind map.\n\nAdd your API key for AI-powered summaries!";
+      if (q.includes('math') || q.includes('algebra') || q.includes('calculus') || q.includes('equation') || q.includes('geometry'))
+        return "🔢 Maths tip: Always write out each step, check your units, and substitute your answer back to verify.\n\nAdd your Gemini API key for full step-by-step maths solutions!";
+      if (q.includes('science') || q.includes('physics') || q.includes('chemistry') || q.includes('biology'))
+        return "🔬 Science tip: Connect every concept to a real-world example to remember it better. Draw diagrams where possible.\n\nAdd your API key for detailed science explanations!";
+      if (q.includes('program') || q.includes('code') || q.includes('python') || q.includes('javascript') || q.includes('debug'))
+        return "💻 Coding tip: Read the error message carefully, test small pieces at a time, and break big problems into small functions.\n\nAdd your API key for code explanations and debugging help!";
+      if (q.includes('history') || q.includes('geography') || q.includes('essay') || q.includes('english') || q.includes('literature'))
+        return "📚 For humanities: focus on causes, effects, dates, and key figures. Flashcards help with memorisation. Practise essay structure.\n\nAdd your API key for detailed answers on any topic!";
+      return "🤖 I'm in offline mode and can only provide basic guidance.\n\nGo to ⚙️ Settings, add your free Gemini API key, and I'll answer any question you have — maths, science, coding, history, and more!";
+    },
+
+    scrollChat() {
+      this.$nextTick(()=>{
+        const box = document.getElementById('chatBox');
+        if (box) box.scrollTop = box.scrollHeight;
+      });
+    },
+    clearChat() {
+      this.chatMessages = [];
+    },
+    nowTime() {
+      return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    },
+
+    // ---- SETTINGS ----
+    showClearConfirm: false,
+
+    saveGeminiKey() {
+      this.geminiKey = this.geminiKeyInput.trim();
+      localStorage.setItem('sm_gemini_key', this.geminiKey);
+      this.showToast('API key saved!');
+    },
+    confirmClearData() { this.showClearConfirm = true; },
+    clearAllData() {
+      this.subjects = [];
+      this.photos = [];
+      this.sessionHistory = [];
+      this.reminders = [];
+      this.quizAttempts = [];
+      this.chatMessages = [];
+      this.save();
+      this.showClearConfirm = false;
+      this.showToast('All data cleared.','info');
+    },
+    exportData() {
+      const data = { subjects:this.subjects, photos:this.photos, sessionHistory:this.sessionHistory, reminders:this.reminders, quizAttempts:this.quizAttempts };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'studymate-backup.json';
+      a.click();
+    },
+    importData(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.subjects) this.subjects = data.subjects;
+          if (data.photos) this.photos = data.photos;
+          if (data.sessionHistory) this.sessionHistory = data.sessionHistory;
+          if (data.reminders) this.reminders = data.reminders;
+          if (data.quizAttempts) this.quizAttempts = data.quizAttempts;
+          this.save();
+          this.showToast('Data imported!');
+        } catch(err) {
+          this.showToast('Import failed – invalid file.','error');
+        }
+      };
+      reader.readAsText(file);
+      evt.target.value='';
+    },
+
+    // ---- PERSISTENCE ----
+    save() {
+      try {
+        localStorage.setItem('sm_subjects', JSON.stringify(this.subjects));
+        // Don't store full photo dataURLs if too large — store up to 50 photos
+        const photosToStore = this.photos.slice(-50);
+        localStorage.setItem('sm_photos', JSON.stringify(photosToStore));
+        localStorage.setItem('sm_history', JSON.stringify(this.sessionHistory));
+        localStorage.setItem('sm_reminders', JSON.stringify(this.reminders));
+        localStorage.setItem('sm_quiz_attempts', JSON.stringify(this.quizAttempts));
+      } catch(e) {
+        if (e.name === 'QuotaExceededError') {
+          this.showToast('Storage full. Some photos may not be saved.','error');
+        }
+      }
+    },
+    load() {
+      try {
+        this.subjects = JSON.parse(localStorage.getItem('sm_subjects')||'[]');
+        this.photos = JSON.parse(localStorage.getItem('sm_photos')||'[]');
+        this.sessionHistory = JSON.parse(localStorage.getItem('sm_history')||'[]');
+        this.reminders = JSON.parse(localStorage.getItem('sm_reminders')||'[]');
+        this.quizAttempts = JSON.parse(localStorage.getItem('sm_quiz_attempts')||'[]');
+        this.geminiKey = localStorage.getItem('sm_gemini_key')||'';
+        this.geminiKeyInput = this.geminiKey;
+      } catch(e) {
+        console.warn('Failed to load saved data:', e);
+      }
+    },
+
+    // ---- UTILS ----
+    formatDate(iso) {
+      try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
+    },
+    goto(id) {
+      if (this.page === 'photos' && id !== 'photos') { this.stopCamera(); }
+      this.page = id;
+      this.mobileNav = false;
+      window.scrollTo({top:0,behavior:'smooth'});
+    },
+
+    // ---- INIT ----
+    init() {
+      this.load();
+      this.restoreTimerState();
+      this.scheduleReminders();
+      this.requestNotifPermission();
+      // Watch page changes to stop camera
+      this.$watch('page', (newVal, oldVal)=>{
+        if (oldVal==='photos' && newVal!=='photos') this.stopCamera();
+      });
+    }
+  }
+}
+</script>
+</body>
+</html>
